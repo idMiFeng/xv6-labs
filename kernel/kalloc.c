@@ -70,13 +70,13 @@ kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
+  acquire(&kmem.lock); //获取内核内存管理的锁，确保在修改内存分配状态时不会被其他线程干扰
+  r = kmem.freelist;   //空闲内存块链表的头部
   if(r)
-    kmem.freelist = r->next;
+    kmem.freelist = r->next; 
   release(&kmem.lock);
 
   if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+    memset((char*)r, 5, PGSIZE); // fill with junk 将分配的物理内存块用 "junk"（字节值为5）填充。这是一种初始化内存的方式，用于标记已分配的内存块。
   return (void*)r;
 }

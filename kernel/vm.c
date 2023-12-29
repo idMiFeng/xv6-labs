@@ -64,6 +64,7 @@ kvminithart()
   // wait for any previous writes to the page table memory to finish.
   sfence_vma();
 
+  // 将硬件页表寄存器切换到内核的页表
   w_satp(MAKE_SATP(kernel_pagetable));
 
   // flush stale entries from the TLB.

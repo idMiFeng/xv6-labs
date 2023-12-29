@@ -1,0 +1,17 @@
+{
+    "cmake.configureOnOpen": true,
+    "files.associations": {
+        "*.tcc": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "functional": "c",
+        "string_view": "c",
+        "ratio": "c",
+        "streambuf": "c",
+        "fcntl.h": "c",
+        "stat.h": "c",
+        "types.h": "c",
+        "param.h": "c",
+        "random": "c"
+    }
+}

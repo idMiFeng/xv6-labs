@@ -3,14 +3,14 @@
 // qemu -machine virt is set up like this,
 // based on qemu's hw/riscv/virt.c:
 //
-// 00001000 -- boot ROM, provided by qemu
-// 02000000 -- CLINT
-// 0C000000 -- PLIC
-// 10000000 -- uart0 
-// 10001000 -- virtio disk 
+// 00001000 -- boot ROM, provided by qemu                    由qemu提供的引导只读存储器，负责引导操作系统
+// 02000000 -- CLINT                                         核间定时器
+// 0C000000 -- PLIC                                          平台中断控制器，用于处理外部中断
+// 10000000 -- uart0                                         串口
+// 10001000 -- virtio disk                                   虚拟磁盘
 // 80000000 -- boot ROM jumps here in machine mode
 //             -kernel loads the kernel here
-// unused RAM after 80000000.
+// unused RAM after 80000000.                                内核的代码和数据被加载到这个区域
 
 // the kernel uses physical memory thus:
 // 80000000 -- entry.S, then kernel text and data
@@ -18,10 +18,10 @@
 // PHYSTOP -- end RAM used by the kernel
 
 // qemu puts UART registers here in physical memory.
-#define UART0 0x10000000L
-#define UART0_IRQ 10
+#define UART0 0x10000000L //QEMU将UART的寄存器映射到物理内存的0x10000000地址处。也就是说，如果你想与UART进行通信，可以通过访问这个地址来读写UART的寄存器。
+#define UART0_IRQ 10 //UART的中断号被定义为10。这表示当UART产生中断时，系统将会使用中断号10来识别和处理UART的中断事件。
 
-// virtio mmio interface
+// virtio mmio interface  虚拟磁盘
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
