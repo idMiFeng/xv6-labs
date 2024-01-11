@@ -57,6 +57,11 @@
 
 // map kernel stacks beneath the trampoline,
 // each surrounded by invalid guard pages.
+// TRAMPOLINE 是一个宏或常量，代表 trampoline 页面的虚拟地址。
+// (p - proc) 计算当前进程 p 在进程数组中的索引。
+// 2*PGSIZE 代表两个页面的大小，因为每个进程都有两个页面的内核栈。
+// 3*PGSIZE 代表三个页面的大小，因为在 TRAMPOLINE 之前有三个页面的保护区域。
+// 因此，这个宏的计算逻辑是从 TRAMPOLINE 开始，向下偏移 (p)*2*PGSIZE + 3*PGSIZE 的距离，以得到当前进程的内核栈的虚拟地址。
 #define KSTACK(p) (TRAMPOLINE - (p)*2*PGSIZE - 3*PGSIZE)
 
 // User memory layout.
