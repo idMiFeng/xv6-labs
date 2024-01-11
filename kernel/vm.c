@@ -82,23 +82,36 @@ kvminithart()
 //   21..29 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
 //    0..11 -- 12 bits of byte offset within the page.
-pte_t *
-walk(pagetable_t pagetable, uint64 va, int alloc)
+//walk 的任务是根据虚拟地址逐级地访问页表，直到找到最底层的页表项，或者在需要的时候创建新的页表
+pte_t *walk(pagetable_t pagetable, uint64 va, int alloc)
 {
+  // 如果虚拟地址大于等于 MAXVA，触发 panic
   if(va >= MAXVA)
     panic("walk");
 
+  // 遍历页表的两个级别（L2 和 L1）
   for(int level = 2; level > 0; level--) {
+    // 获取当前级别的页表项指针
     pte_t *pte = &pagetable[PX(level, va)];
+    
+    // 如果页表项有效（PTE_V 标志被设置）
     if(*pte & PTE_V) {
+      // 将 pagetable 更新为下一级页表的基地址
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
+      // 如果需要分配新的页表（alloc 为真），或者分配失败，则返回0
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
+      
+      // 将新分配的页表清零
       memset(pagetable, 0, PGSIZE);
+      
+      // 更新当前页表项，设置 PTE_V 标志，并指向新分配的页表
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
+  
+  // 返回最终级别的页表项指针
   return &pagetable[PX(0, va)];
 }
 
@@ -354,15 +367,15 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   uint64 n, va0, pa0;
 
   while(len > 0){
-    va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    va0 = PGROUNDDOWN(dstva); //使用 PGROUNDDOWN(dstva) 将目标虚拟地址 dstva 向下对齐到页面边界，得到 va0
+    pa0 = walkaddr(pagetable, va0);//使用 walkaddr(pagetable, va0) 查找 va0 对应的物理地址 pa0。
     if(pa0 == 0)
       return -1;
-    n = PGSIZE - (dstva - va0);
+    n = PGSIZE - (dstva - va0); //计算实际需要复制的字节数 n
     if(n > len)
       n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
-
+    memmove((void *)(pa0 + (dstva - va0)), src, n);//使用 memmove 将源数据 src 复制到用户空间的目标地址 pa0 + (dstva - va0)。
+    //更新 len、src 和 dstva，准备复制下一段数据  
     len -= n;
     src += n;
     dstva = va0 + PGSIZE;

@@ -15,21 +15,22 @@ extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
 struct run {
-  struct run *next;
+  struct run *next;// 用于形成空闲页链表
 };
 
 struct {
   struct spinlock lock;
-  struct run *freelist;
-} kmem;
+  struct run *freelist;//空闲内存块链表的头指针，指向第一个空闲块
+} kmem; // 维护内核的空闲内存块链表
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  initlock(&kmem.lock, "kmem"); // 初始化自旋锁
   freerange(end, (void*)PHYSTOP);
 }
 
+// 将一段物理内存划分成块，并将这些块添加到 kmem 结构体中的 freelist 链表中
 void
 freerange(void *pa_start, void *pa_end)
 {
@@ -79,4 +80,16 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+//add freemem for sysinfo
+uint64 freemem(void){
+  struct run *p = kmem.freelist;
+  uint64 num = 0; 
+  while (p)
+  {
+    p = p->next;
+    num++;
+  }
+  return num * PGSIZE;
 }

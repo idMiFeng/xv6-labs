@@ -5,6 +5,9 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+//add struct sysinfo
+#include "sysinfo.h"
+
 
 uint64
 sys_exit(void)
@@ -90,4 +93,30 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+//add trace
+uint64
+sys_trace(void)
+{
+  int tracemask;
+  // 把a0寄存器的值放进 tracemask
+  argint(0, &tracemask);
+  myproc()->tracemask = tracemask;
+  return 0;
+}
+
+//add sysinfo
+uint64
+sys_sysinfo(void)
+{
+  struct sysinfo info;
+  info.freemem=freemem();
+  info.nproc=nproc();
+  // addr是用户程序调用sysinfo 传递的参数
+  uint64 addr;
+  argaddr(0, &addr);
+  if(copyout(myproc()->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+  return 0;
 }

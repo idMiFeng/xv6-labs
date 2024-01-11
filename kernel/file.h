@@ -1,12 +1,13 @@
+// 表示正在被进程打开的文件
 struct file {
-  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
-  int ref; // reference count
-  char readable;
-  char writable;
+  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;  //FD_NONE（未定义类型）、FD_PIPE（管道文件）、FD_INODE（inode 文件）、FD_DEVICE（设备文件）。
+  int ref; // reference count      用于记录当前文件被打开的次数
+  char readable;     // 表示文件是否可读
+  char writable;     // 表示文件是否可写
   struct pipe *pipe; // FD_PIPE
   struct inode *ip;  // FD_INODE and FD_DEVICE
-  uint off;          // FD_INODE
-  short major;       // FD_DEVICE
+  uint off;          // FD_INODE     文件偏移
+  short major;       // FD_DEVICE    设备文件的主设备号
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
