@@ -99,14 +99,14 @@
 // [E1000 3.3.3]
 struct tx_desc
 {
-  uint64 addr;
-  uint16 length;
-  uint8 cso;
-  uint8 cmd;
-  uint8 status;
-  uint8 css;
-  uint16 special;
-};
+  uint64 addr;          // 指向待发送数据包的缓冲区的物理地址
+  uint16 length;        // 数据包的长度
+  uint8 cso;            // Checksum Offset（校验和偏移），指示校验和的插入位置相对于数据包起始位置的偏移
+  uint8 cmd;            // Command（命令）字段，包含一些控制标志，用于指示硬件执行的操作
+  uint8 status;         // 存储硬件对该描述符的处理结果
+  uint8 css;            // 指示从数据包的哪个位置开始计算校验和
+  uint16 special;       // 一些特殊的控制信息
+}; 
 
 /* Receive Descriptor bit definitions [E1000 3.2.3.1] */
 #define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
