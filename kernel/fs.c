@@ -385,38 +385,95 @@ bmap(struct inode *ip, uint bn)
   uint addr, *a;
   struct buf *bp;
 
+  // 如果逻辑块号在直接块范围内
   if(bn < NDIRECT){
+    // 如果直接块地址为0，表示该块尚未分配
     if((addr = ip->addrs[bn]) == 0){
+      // 分配一个新块
       addr = balloc(ip->dev);
       if(addr == 0)
-        return 0;
+        return 0; // 分配失败，返回0表示磁盘空间不足
+      // 将新块的地址存储在inode中
       ip->addrs[bn] = addr;
     }
+    // 返回直接块的地址
     return addr;
   }
+
+  // 如果逻辑块号在单间接块范围内
   bn -= NDIRECT;
 
   if(bn < NINDIRECT){
-    // Load indirect block, allocating if necessary.
+    // 加载单间接块，如果需要的话进行分配
     if((addr = ip->addrs[NDIRECT]) == 0){
+      // 分配一个新块
       addr = balloc(ip->dev);
       if(addr == 0)
-        return 0;
+        return 0; // 分配失败，返回0表示磁盘空间不足
+      // 将新块的地址存储在inode中
       ip->addrs[NDIRECT] = addr;
     }
+    // 读取单间接块
     bp = bread(ip->dev, addr);
+    // 获取单间接块中的块地址数组
     a = (uint*)bp->data;
+    // 如果单间接块中的块地址为0，表示该块尚未分配
     if((addr = a[bn]) == 0){
+      // 分配一个新块
       addr = balloc(ip->dev);
       if(addr){
+        // 将新块的地址存储在单间接块的对应位置
         a[bn] = addr;
+        // 将修改写回磁盘
         log_write(bp);
+      }
+    }
+    // 释放单间接块
+    brelse(bp);
+    // 返回块的地址
+    return addr;
+  }
+
+  //从这里开始是二级块的查询过程
+  bn -= NINDIRECT;
+  if(bn < NBI_INDIRECT){
+    // 加载二级间接块，如果需要的话进行分配
+    if((addr = ip->addrs[NDIRECT + 1]) == 0){
+      addr = balloc(ip->dev);
+      if(addr == 0)
+        return 0; 
+      ip->addrs[NDIRECT+1] = addr; 
+    } 
+        
+    bp = bread(ip->dev, addr);
+    a = (uint *)bp->data;
+    
+    uint idx_b1 = bn / NINDIRECT; // 获取二级块的一级索引
+    if((addr = a[idx_b1]) == 0){  
+      addr = balloc(ip->dev);
+      if(addr){
+        a[idx_b1] = addr;
+        log_write(bp); 
+      }
+    } 
+
+    brelse(bp); // 释放块缓存
+    
+    bp = bread(ip->dev, addr); 
+    a = (uint *)bp->data;
+    uint idx_b2 = bn % NINDIRECT;
+    if((addr = a[idx_b2]) == 0){
+      addr = balloc(ip->dev);
+      if(addr){
+        a[idx_b2] = addr;
+        log_write(bp); 
       }
     }
     brelse(bp);
     return addr;
-  }
 
+  }
+  // 如果逻辑块号超出了范围，发生了错误
   panic("bmap: out of range");
 }
 
@@ -447,6 +504,26 @@ itrunc(struct inode *ip)
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
   }
+  
+  if(ip->addrs[NDIRECT+1]){
+    bp = bread(ip->dev, ip->addrs[NDIRECT+1]);
+    a = (uint*)bp->data;
+    for(j = 0; j < NINDIRECT; j++){
+      if(a[j]) {
+        struct buf *bp2 = bread(ip->dev, a[j]);
+        uint *a2 = (uint*)bp2->data;
+        for(int k = 0; k < NINDIRECT; k++){
+          if(a2[k])
+            bfree(ip->dev, a2[k]);
+        }
+        brelse(bp2);
+        bfree(ip->dev, a[j]);
+      }
+    }
+    brelse(bp);
+    bfree(ip->dev, ip->addrs[NDIRECT+1]);
+    ip->addrs[NDIRECT] = 0;
+  }  
 
   ip->size = 0;
   iupdate(ip);
