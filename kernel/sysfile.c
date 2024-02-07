@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "memlayout.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -501,5 +502,105 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+int
+mmap_hander(pagetable_t pagetable,uint64 va,struct vma *vma)
+{
+  uint64 offset = va - vma->start;
+  uint64 mem = (uint64)kalloc();
+  memset((void*)mem, 0, PGSIZE);
+  ilock(vma->f->ip);
+  readi(vma->f->ip, 0, mem, offset, PGSIZE);
+  iunlock(vma->f->ip);
+  int flag = PTE_U;
+    if(vma->prot & PROT_READ) flag |= PTE_R;
+    if(vma->prot & PROT_WRITE) flag |= PTE_W;
+    if(vma->prot & PROT_EXEC) flag |= PTE_X;
+    if(mappages(pagetable, va, PGSIZE, mem, flag) != 0) {
+      kfree((void*)mem);
+      return -1;
+    }
+  return 0;
+}
+
+
+uint64 
+sys_mmap(void)
+{
+  uint64 addr, sz, offset;
+  int prot, flags, fd; 
+  struct file *f;
+  
+  argaddr(0, &addr);
+  argaddr(1, &sz);
+  argint(2, &prot);
+  argint(3, &flags);
+  argfd(4, &fd, &f);
+  argaddr(5, &offset);
+  
+  // 阻止了对以只读模式打开的文件进行读写映射
+  if((!f->readable && (prot & (PROT_READ))) || (!f->writable && (prot & PROT_WRITE) && !(flags & MAP_PRIVATE)))
+    return -1;
+
+  struct proc *p = myproc();
+  uint64 end = PGROUNDDOWN(TRAPFRAME);
+  struct vma *v;
+  for(int i=0;i<16;i++) {
+    v = &p->vmas[i];
+    if(v->valid == 0){
+
+      v->valid = 1;
+      break;
+    }else if(v->start < end){
+      end = PGROUNDDOWN(v->start);
+    }
+  }
+  v->length = sz;
+  sz = PGROUNDUP(sz);
+  v->start = end-sz;
+  v->prot = prot;
+  v->flags = flags;
+  v->f = f; 
+  v->offset = offset;
+  filedup(v->f);
+  return v->start;
+}
+
+
+// kernel/sysfile.c
+
+uint64
+sys_munmap(void)
+{
+  uint64 addr;
+  int length;
+  struct proc *p = myproc();
+  struct vma *vma = 0;
+  argaddr(0, &addr);
+  argint(1, &length);
+  
+  addr = PGROUNDDOWN(addr);
+  length = PGROUNDUP(length);
+  for(int i = 0; i < 16; i++) {
+    if (addr >= p->vmas[i].start || addr < p->vmas[i].start + p->vmas[i].length) {
+      vma = &p->vmas[i];
+      break;
+    }
+  }
+  if(vma == 0) return 0;
+  
+  vma->start += length;
+  vma->length -= length;
+  if(vma->flags & MAP_SHARED)
+    filewrite(vma->f, addr, length);
+  uvmunmap(p->pagetable, addr, length/PGSIZE, 1);
+  if(vma->length == 0) {
+    // 如果munmap删除前一个mmap的所有页面，它应该减少相应结构文件的引用计数
+    fileclose(vma->f);
+    vma->valid = 0;
+  }
+  
   return 0;
 }
